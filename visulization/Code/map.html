@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>
+
+      svg {
+        /*background: #eee;*/
+        /*margin-left: 5%;*/
+        float: left;
+        }
+
+      .sphere {
+        fill: #fff;
+      }
+
+      .land {
+        fill: #f3f3f3;
+        stroke: #d3d3d3;
+        stroke-width: -2px;
+      }
+
+      .boundary {
+        fill: none;
+        stroke: #d3d3d3;
+        stroke-width: -2px;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .overlay {
+        fill: none;
+        pointer-events: all;
+      }
+
+      #dropdown-list{
+        float: right;
+        margin:3%;
+      }
+
+      #input-form{
+        width: 73px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+      }
+
+      #list2{
+        position: relative;
+        margin-top:10px;
+      }
+
+      select{
+        width: 80px;
+      }
+
+      .list-option{
+        display: none;
+      }
+    </style>
+
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://d3js.org/topojson.v1.min.js"></script>
+    <script src="http://code.jquery.com/jquery-1.10.2.js"></script>
+  </head>
+
+  <body>
+    <div>
+    <div id="dropdown-list">
+      
+      <div id="list1">
+        <select>
+          <option value=""></option>
+          <option value="Q1">Q1</option>
+          <option value="Q2">Q2</option>
+          <option value="Q3">Q3</option>
+          <option value="Q4">Q4</option>
+        </select>
+      </div>
+      <div id="list2">
+        <select id="Q1-option" class="list-option">
+          <option value=""></option>
+          <option value="company">company</option>
+          <option value="salary">salary</option>
+          <option value="jobType">jobType</option>
+          <option value="company_temporal">company temporal</option>
+          <option value="salary_temporal">salary temporal</option>
+          <option value="jobType_temporal">jobType temporal</option>
+        </select>
+        <select id="Q2-option" class="list-option">
+          <option value=""></option>
+          <option value="Q1">company</option>
+          <option value="Q2">salary</option>
+          <option value="Q3">jobType</option>
+        </select>
+        <select id="Q3-option" class="list-option">
+          <option value=""></option>
+          <option value="Q1">company</option>
+          <option value="Q2">salary</option>
+          <option value="Q3">jobType</option>
+        </select>
+        <select id="Q4-option" class="list-option">
+          <option value=""></option>
+          <option value="business">business</option>
+          <option value="industrial">industrial</option>
+          <option value="commercial">commercial</option>
+          <option value="service">service</option>
+          <option value="medical">medical</option>
+          <option value="residential">residential</option>
+        </select>
+      </div>
+      <!-- <form id="form" onsubmit="javascript:myFunc(); return false;"> -->
+        <input id="input-form" type="text" name="fname">
+        <br/>
+        <input id="click-form" type="submit" value="Submit">
+      <!-- </form> -->
+    </div>
+
+    <script>
+      
+      var width = 960,
+          height = 560;
+
+      var map = d3.geo.mercator()
+          .translate([width / 2, height / 2])
+          .scale((width - 1) / 2 / Math.PI);
+
+      var zoom = d3.behavior.zoom()
+          .scaleExtent([1, 8])
+          .on("zoom", zoomed);
+
+      var path = d3.geo.path()
+          .projection(map);
+
+      var svg = d3.select("body").insert("svg",":first-child")
+          .attr("width", width)
+          .attr("height", height)
+        .append("g");
+
+      var layer1 = svg.append("g").attr("id", "first_layer");
+      var layer2 = svg.append("g").attr("id", "second_layer");
+
+      svg.append("rect")
+          .attr("class", "overlay")
+          .attr("width", width)
+          .attr("height", height);
+
+      svg.call(zoom)
+          .call(zoom.event);
+
+      d3.json("world.json", function(error, world) {
+        layer1.append("path")
+            .datum({type: "Sphere"})
+            .attr("class", "sphere")
+            .attr("d", path);
+
+        layer1.append("path")
+            .datum(topojson.merge(world, world.objects.countries.geometries))
+            .attr("class", "land")
+            .attr("d", path);
+
+        layer1.append("path")
+            .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
+            .attr("class", "boundary")
+            .attr("d", path);
+      });
+
+      $('#list1 select').change(function () {
+
+        var option = "#list2 #"+$(this).val()+"-option";
+        $('.list-option').hide();
+        $(option).show();
+        $(option).val('');
+        $('#second_layer').empty();
+      
+      });
+      
+      $('#click-form').click(function () {
+
+        var val = $("#list2 select").val(); 
+        var input = $('input-form').val();
+
+        if ($("#list1 select").val() == "Q1") {
+          var val = $("#list2 #Q1-option").val(); 
+          
+          if (val == "company") {
+
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=company:"+input+"&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+          }else if (val == "company_temporal"){
+            // d3.json("data/query5.json",function(d){ projectDot(d,"green")});
+
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=comapny:"+input+"&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"green")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            setTimeout(function(){
+              // d3.json("data/query6.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=comapny:"+input+"&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("data/query7.json",function(d){ projectDot(d,"black")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=comapny:"+input+"&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"black")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("data/query8.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=comapny:"+input+"&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);
+
+          }else if (val == "salary"){
+            // d3.json("data/query3.json",function(d){ projectDot(d,"brown")});
+            var url
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=salary:"+input+"&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+          }else if (val == "salary_temporal"){
+            // d3.json("data/query5.json",function(d){ projectDot(d,"red")});
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=salary:"+input+"&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            setTimeout(function(){
+              // d3.json("data/query6.json",function(d){ projectDot(d,"black")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=salary:"+input+"&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"black")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("data/query7.json",function(d){ projectDot(d,"green")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=salary:"+input+"&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"green")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("data/query8.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=salary:"+input+"&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);
+
+          }else if (val == "jobType"){
+            // d3.json("data/query2.json",function(d){ projectDot(d,"red")});
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=jobType:"+input+"&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+
+          }else if (val == "jobType_temporal"){
+            // d3.json("d3/1-spring-full.json",function(d){ projectDot(d,"brown")});
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=jobType:"+input+"&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+
+            setTimeout(function(){
+              // d3.json("d3/1-summer-full.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=jobType:"+input+"&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("d3/1-fall-full.json",function(d){ projectDot(d,"grey")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=jobType:"+input+"&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"grey")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("d3/1-winter-full.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=jobType:"+input+"&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);
+
+          }
+          
+        }else if ($("#list1 select").val() == "Q2") {
+          //by season
+          // d3.json("d3/spring-cate.json",projectDot_Q2);
+          $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': projectDot_Q2,
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+          setTimeout(function(){
+            // d3.json("d3/summer-cate.json",projectDot_Q2);
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': projectDot_Q2,
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+          }, 2000);
+          setTimeout(function(){
+            // d3.json("d3/fall-cate.json",projectDot_Q2);
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': projectDot_Q2,
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+          }, 4000);
+          setTimeout(function(){
+            // d3.json("d3/winter-cate.json",projectDot_Q2);
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': projectDot_Q2,
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+          }, 6000);
+
+        }else if ($("#list1 select").val() == "Q3") {
+          // d3.json("d3/3-company.json",projectDot_Q3);
+          $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=company:"+input+"&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': projectDot_Q3,
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+
+        }else if($("#list1 select").val() == "Q4"){
+
+          var val = $("#list2 #Q4-option").val(); 
+
+          if (val == "business") {
+            
+            // d3.json("d3/bu-spring.json",function(d){ projectDot(d,"brown")});
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:business&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+
+            setTimeout(function(){
+              // d3.json("d3/bu-summer.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:business&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("d3/bu-fall.json",function(d){ projectDot(d,"grey")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:business&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"grey")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("d3/bu-winter.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:business&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);
+
+          }else if (val == "industrial") {
+            // d3.json("d3/in-spring.json",function(d){ projectDot(d,"brown")});
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:industrial&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+
+            setTimeout(function(){
+              // d3.json("d3/in-summer.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:industrial&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("d3/in-fall.json",function(d){ projectDot(d,"grey")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:industrial&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"grey")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("d3/in-winter.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:industrial&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);
+
+          }else if (val == "commercial") {
+            // d3.json("d3/co-spring.json",function(d){ projectDot(d,"brown")});
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:commercial&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            setTimeout(function(){
+              // d3.json("d3/co-summer.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:commercial&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("d3/co-fall.json",function(d){ projectDot(d,"grey")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:commercial&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"grey")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("d3/co-winter.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:commercial&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);
+          }
+          else if (val == "service") {
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:service&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            setTimeout(function(){
+              // d3.json("d3/co-summer.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:service&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("d3/co-fall.json",function(d){ projectDot(d,"grey")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:service&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"grey")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("d3/co-winter.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:service&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);            
+          }
+          else if (val == "medical") {
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:medical&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            setTimeout(function(){
+              // d3.json("d3/co-summer.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:medical&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("d3/co-fall.json",function(d){ projectDot(d,"grey")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:medical&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"grey")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("d3/co-winter.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:medical&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);            
+          }
+          else if (val == "residential") {
+            $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:residential&fq=season:spring&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"brown")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            setTimeout(function(){
+              // d3.json("d3/co-summer.json",function(d){ projectDot(d,"red")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:residential&fq=season:summer&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"red")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 2000);
+            setTimeout(function(){
+              // d3.json("d3/co-fall.json",function(d){ projectDot(d,"grey")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:residential&fq=season:fall&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"grey")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 4000);
+            setTimeout(function(){
+              // d3.json("d3/co-winter.json",function(d){ projectDot(d,"orange")});
+              $.ajax({
+              'url': "http://localhost:8983/solr/select?wt=json&indent=true&q:*:*&fq=category:residential&fq=season:winter&group=true&group.field=Area&rows=5000&fl=category,longitude,latitude&group.ngroups=true",
+              'data': {'wt':'json', 'q':'your search goes here'},
+              'success': function(d){ projectDot(d,"orange")},
+              'dataType': 'jsonp',
+              'jsonp': 'json.wrf'
+            });
+            }, 6000);            
+          }
+        }
+
+      });
+
+      function projectDot(dataset,color){
+
+        $('#second_layer').empty();
+            svg.select("#second_layer")
+                .selectAll("path")
+                .data(dataset.grouped.Area.groups)
+                .enter()
+                .append("circle")
+                .attr("r", "1")
+                .attr("fill",function(d){
+                  return color;
+                })
+                .attr("cy", function(d){ return map([d.doclist.docs[0].longitude,d.doclist.docs[0].latitude])[1] })
+                .attr("cx", function(d){ return map([d.doclist.docs[0].longitude,d.doclist.docs[0].latitude])[0] });
+      }
+
+      function projectDot_Q2(dataset){
+
+        $('#second_layer').empty();
+            svg.select("#second_layer")
+                .selectAll("path")
+                .data(dataset.grouped.Area.groups)
+                .enter()
+                .append("circle")
+                .attr("r", "1")
+                .attr("fill",function(d){
+                  var category = d.doclist.docs[0].category;
+         
+                  return "red";
+                })
+                .attr("cy", function(d){ return map([d.doclist.docs[0].longitude,d.doclist.docs[0].latitude])[1] })
+                .attr("cx", function(d){ return map([d.doclist.docs[0].longitude,d.doclist.docs[0].latitude])[0] });
+      }
+
+      function projectDot_Q3(dataset){
+
+        $('#second_layer').empty();
+            svg.select("#second_layer")
+                .selectAll("path")
+                .data(dataset.grouped.Area.groups)
+                .enter()
+                .append("circle")
+                .attr("r", "1")
+                .attr("fill",function(d){
+                  var category = d.doclist.docs[0].category;
+                  return "orange";
+                })
+                .attr("cy", function(d){ return map([d.doclist.docs[0].longitude,d.doclist.docs[0].latitude])[1] })
+                .attr("cx", function(d){ return map([d.doclist.docs[0].longitude,d.doclist.docs[0].latitude])[0] });
+      }
+
+      function zoomed() {
+        svg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+      }
+
+      d3.select(self.frameElement).style("height", height + "px");
+
+    </script>
+  </body>
+</html>
